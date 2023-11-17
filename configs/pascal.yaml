@@ -2,7 +2,7 @@
 dataset: pascal
 nclass: 21
 crop_size: 321
-data_root: Your/Pascal/Path
+data_root: pascal2012
 
 # arguments for training
 epochs: 80
@@ -17,6 +17,6 @@ conf_thresh: 0.95
 
 # arguments for model
 model: deeplabv3plus
-backbone: resnet101
+backbone: resnet50
 replace_stride_with_dilation: [False, False, True]
 dilations: [6, 12, 18]
