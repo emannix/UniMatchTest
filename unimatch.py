@@ -19,6 +19,7 @@ from util.ohem import ProbOhemCrossEntropy2d
 from util.utils import count_params, init_log, AverageMeter
 from util.dist_helper import setup_distributed
 
+from pdb import set_trace as pb
 
 parser = argparse.ArgumentParser(description='Revisiting Weak-to-Strong Consistency in Semi-Supervised Semantic Segmentation')
 parser.add_argument('--config', type=str, required=True)
@@ -59,10 +60,12 @@ def main():
         logger.info('Total params: {:.1f}M\n'.format(count_params(model)))
 
     local_rank = int(os.environ["LOCAL_RANK"])
-    model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    if not cfg['seed']:
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model.cuda()
 
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], broadcast_buffers=False,
+    if not cfg['seed']:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], broadcast_buffers=False,
                                                       output_device=local_rank, find_unused_parameters=False)
 
     if cfg['criterion']['name'] == 'CELoss':
@@ -81,18 +84,21 @@ def main():
     valset = SemiDataset(cfg['dataset'], cfg['data_root'], 'val', seed=cfg['seed'])
 
     if cfg['seed']:
-        myshuffle = False
+        trainsampler_l = torch.utils.data.sampler.SequentialSampler(trainset_l)
+        trainsampler_u = torch.utils.data.sampler.SequentialSampler(trainset_u)
+        valsampler = torch.utils.data.sampler.SequentialSampler(valset)
+        num_workers = 0
     else:
-        myshuffle = True
+        trainsampler_l = torch.utils.data.distributed.DistributedSampler(trainset_l)
+        trainsampler_u = torch.utils.data.distributed.DistributedSampler(trainset_u)
+        valsampler = torch.utils.data.distributed.DistributedSampler(valset)
+        num_workers = 1
 
-    trainsampler_l = torch.utils.data.distributed.DistributedSampler(trainset_l, shuffle=myshuffle)
     trainloader_l = DataLoader(trainset_l, batch_size=cfg['batch_size'],
-                               pin_memory=True, num_workers=1, drop_last=True, sampler=trainsampler_l)
-    trainsampler_u = torch.utils.data.distributed.DistributedSampler(trainset_u, shuffle=myshuffle)
+                               pin_memory=True, num_workers=num_workers, drop_last=True, sampler=trainsampler_l)
     trainloader_u = DataLoader(trainset_u, batch_size=cfg['batch_size'],
-                               pin_memory=True, num_workers=1, drop_last=True, sampler=trainsampler_u)
-    valsampler = torch.utils.data.distributed.DistributedSampler(valset, shuffle=myshuffle)
-    valloader = DataLoader(valset, batch_size=1, pin_memory=True, num_workers=1,
+                               pin_memory=True, num_workers=num_workers, drop_last=True, sampler=trainsampler_u)
+    valloader = DataLoader(valset, batch_size=1, pin_memory=True, num_workers=num_workers,
                            drop_last=False, sampler=valsampler)
 
     total_iters = len(trainloader_u) * cfg['epochs']
@@ -120,8 +126,9 @@ def main():
         total_loss_w_fp = AverageMeter()
         total_mask_ratio = AverageMeter()
 
-        trainloader_l.sampler.set_epoch(epoch)
-        trainloader_u.sampler.set_epoch(epoch)
+        if not cfg['seed']:
+            trainloader_l.sampler.set_epoch(epoch)
+            trainloader_u.sampler.set_epoch(epoch)
 
         loader = zip(trainloader_l, trainloader_u, trainloader_u)
 
@@ -144,6 +151,7 @@ def main():
                 conf_u_w_mix = pred_u_w_mix.softmax(dim=1).max(dim=1)[0]
                 mask_u_w_mix = pred_u_w_mix.argmax(dim=1)
 
+            pb()
             img_u_s1[cutmix_box1.unsqueeze(1).expand(img_u_s1.shape) == 1] = \
                 img_u_s1_mix[cutmix_box1.unsqueeze(1).expand(img_u_s1.shape) == 1]
             img_u_s2[cutmix_box2.unsqueeze(1).expand(img_u_s2.shape) == 1] = \
