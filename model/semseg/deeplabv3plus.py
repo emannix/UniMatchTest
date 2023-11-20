@@ -14,6 +14,7 @@ class DeepLabV3Plus(nn.Module):
     def __init__(self, cfg):
         super(DeepLabV3Plus, self).__init__()
 
+        self.seed = cfg['seed']
         if cfg['seed']:
             torch.manual_seed(1)
             np.random.seed(1)
@@ -46,12 +47,19 @@ class DeepLabV3Plus(nn.Module):
         self.classifier = nn.Conv2d(256, cfg['nclass'], 1, bias=True)
 
     def forward(self, x, need_fp=False):
+
         h, w = x.shape[-2:]
 
         feats = self.backbone.base_forward(x)
         c1, c4 = feats[0], feats[-1]
 
         if need_fp:
+            if self.seed:
+                torch.manual_seed(1)
+                np.random.seed(1)
+                random.seed(1)
+                torch.cuda.manual_seed_all(1)
+
             outs = self._decode(torch.cat((c1, nn.Dropout2d(0.5)(c1))),
                                 torch.cat((c4, nn.Dropout2d(0.5)(c4))))
             outs = F.interpolate(outs, size=(h, w), mode="bilinear", align_corners=True)

@@ -151,7 +151,6 @@ def main():
                 conf_u_w_mix = pred_u_w_mix.softmax(dim=1).max(dim=1)[0]
                 mask_u_w_mix = pred_u_w_mix.argmax(dim=1)
 
-            pb()
             img_u_s1[cutmix_box1.unsqueeze(1).expand(img_u_s1.shape) == 1] = \
                 img_u_s1_mix[cutmix_box1.unsqueeze(1).expand(img_u_s1.shape) == 1]
             img_u_s2[cutmix_box2.unsqueeze(1).expand(img_u_s2.shape) == 1] = \
