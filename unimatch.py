@@ -75,18 +75,23 @@ def main():
     criterion_u = nn.CrossEntropyLoss(reduction='none').cuda(local_rank)
 
     trainset_u = SemiDataset(cfg['dataset'], cfg['data_root'], 'train_u',
-                             cfg['crop_size'], args.unlabeled_id_path)
+                             cfg['crop_size'], args.unlabeled_id_path, seed=cfg['seed'])
     trainset_l = SemiDataset(cfg['dataset'], cfg['data_root'], 'train_l',
-                             cfg['crop_size'], args.labeled_id_path, nsample=len(trainset_u.ids))
-    valset = SemiDataset(cfg['dataset'], cfg['data_root'], 'val')
+                             cfg['crop_size'], args.labeled_id_path, nsample=len(trainset_u.ids), seed=cfg['seed'])
+    valset = SemiDataset(cfg['dataset'], cfg['data_root'], 'val', seed=cfg['seed'])
 
-    trainsampler_l = torch.utils.data.distributed.DistributedSampler(trainset_l)
+    if cfg['seed']:
+        myshuffle = False
+    else:
+        myshuffle = True
+
+    trainsampler_l = torch.utils.data.distributed.DistributedSampler(trainset_l, shuffle=myshuffle)
     trainloader_l = DataLoader(trainset_l, batch_size=cfg['batch_size'],
                                pin_memory=True, num_workers=1, drop_last=True, sampler=trainsampler_l)
-    trainsampler_u = torch.utils.data.distributed.DistributedSampler(trainset_u)
+    trainsampler_u = torch.utils.data.distributed.DistributedSampler(trainset_u, shuffle=myshuffle)
     trainloader_u = DataLoader(trainset_u, batch_size=cfg['batch_size'],
                                pin_memory=True, num_workers=1, drop_last=True, sampler=trainsampler_u)
-    valsampler = torch.utils.data.distributed.DistributedSampler(valset)
+    valsampler = torch.utils.data.distributed.DistributedSampler(valset, shuffle=myshuffle)
     valloader = DataLoader(valset, batch_size=1, pin_memory=True, num_workers=1,
                            drop_last=False, sampler=valsampler)
 

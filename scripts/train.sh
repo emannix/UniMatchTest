@@ -1,5 +1,6 @@
 #!/bin/bash
 now=$(date +"%Y%m%d_%H%M%S")
+# source scripts/train.sh 1 6007
 
 # modify these augments if you want to try other datasets, splits or methods
 # dataset: ['pascal', 'cityscapes', 'coco']

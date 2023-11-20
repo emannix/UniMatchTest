@@ -10,6 +10,12 @@ class DeepLabV3Plus(nn.Module):
     def __init__(self, cfg):
         super(DeepLabV3Plus, self).__init__()
 
+        if cfg['seed']:
+            torch.manual_seed(1)
+            np.random.seed(1)
+            random.seed(1)
+            torch.cuda.manual_seed_all(1)
+
         if 'resnet' in cfg['backbone']:
             self.backbone = resnet.__dict__[cfg['backbone']](pretrained=True, 
                                                              replace_stride_with_dilation=cfg['replace_stride_with_dilation'])

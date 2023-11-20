@@ -13,11 +13,12 @@ from torchvision import transforms
 
 
 class SemiDataset(Dataset):
-    def __init__(self, name, root, mode, size=None, id_path=None, nsample=None):
+    def __init__(self, name, root, mode, size=None, id_path=None, nsample=None, seed=None):
         self.name = name
         self.root = root
         self.mode = mode
         self.size = size
+        self.seed = seed
 
         if mode == 'train_l' or mode == 'train_u':
             with open(id_path, 'r') as f:
@@ -33,6 +34,12 @@ class SemiDataset(Dataset):
         id = self.ids[item]
         img = Image.open(os.path.join(self.root, id.split(' ')[0])).convert('RGB')
         mask = Image.fromarray(np.array(Image.open(os.path.join(self.root, id.split(' ')[1]))))
+
+        if self.seed:
+            torch.manual_seed(1)
+            np.random.seed(1)
+            random.seed(1)
+            torch.cuda.manual_seed_all(1)
 
         if self.mode == 'val':
             img, mask = normalize(img, mask)
